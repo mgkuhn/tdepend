@@ -1,0 +1,28 @@
+#!/usr/bin/perl
+#List *.tex and *.m files on the command line to get Makefile dependencies
+foreach $fn (@ARGV) {
+    open(F, "<$fn");
+    if ($fn =~ /\.tex$/) {
+	my $dep;
+	while (<F>) {
+	    if (/\\includegraphics\{([\w\.-]+.eps)\}/) {
+		$dep .= ' ' if $dep;
+		$dep .= $1;
+	    }
+	}
+	print "$fn: $dep\n\n" if $dep;
+    } elsif ($fn =~ /\.m$/) {
+	my $cmd = $`;
+	my $prod;
+	while (<F>) {
+	    if (/^\s*(imwrite|saveas)\(.*?'([\w\.%-]+)\'.*?(,\s*\'\w+\'\s*)?\);?\s+$/) {
+		$prod .= ' ' if $prod;
+		$prod .= $2;
+	    }
+	}
+	print "$prod: $fn\n\techo $cmd | matlab -nospash\n\n" if $prod;
+    } else {
+	die("Unknown file type of '$fn'");
+    }
+    close(F);
+}
