@@ -14,13 +14,25 @@ foreach $fn (@ARGV) {
     } elsif ($fn =~ /\.m$/) {
 	my $cmd = $`;
 	my $prod;
+	my $dep = $fn;
 	while (<F>) {
+	    # handle continuation lines
+	    while (s/\.\.\.\s*$//) {
+		$_ .= <F>;
+	    }
 	    if (/^\s*(imwrite|saveas)\(.*?'([\w\.%-]+)\'.*?(,\s*\'\w+\'\s*)?\);?\s+$/) {
 		$prod .= ' ' if $prod;
 		$prod .= $2;
 	    }
+            if (/^\s*load\s+([\w\.%-]+)(;.*)?\s+$/) {
+                $dep .= " $1"
+            }
 	}
-	print "$prod: $fn\n\techo $cmd | matlab -nospash\n\n" if $prod;
+	if ($prod && !$matlab) {
+	    print "MATLAB=matlab -nosplash\n\n";
+	    $matlab = 1;
+	}
+	print "$prod: $dep\n\techo $cmd | \$(MATLAB)\n\n" if $prod;
     } else {
 	die("Unknown file type of '$fn'");
     }
