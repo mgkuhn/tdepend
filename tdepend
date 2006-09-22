@@ -5,7 +5,8 @@ foreach $fn (@ARGV) {
     if ($fn =~ /\.tex$/) {
 	my $dep;
 	while (<F>) {
-	    if (/\\includegraphics\*?(?:\[\S+\]){0,2}\{([\w\.-]+.eps)\}/) {
+	    if (/\\includegraphics\*?(?:\[\S+\]){0,2}\{([\w\.-]+)\}/ ||
+		/\\input\*?(?:\[\S+\]){0,2}\{([\w\.-]+)\}/) {
 		$dep .= ' ' if $dep;
 		$dep .= $1;
 	    }
