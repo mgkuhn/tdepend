@@ -1,21 +1,39 @@
 #!/usr/bin/perl
 #List *.tex and *.m files on the command line to get Makefile dependencies
-foreach $fn (@ARGV) {
-    open(F, "<$fn");
-    if ($fn =~ /\.tex$/) {
-	my $dep;
-	while (<F>) {
-	    if (/\\includegraphics\*?(?:\[\S+\]){0,2}\{([\w\.-]+)\}/ ||
-		/\\input\*?(?:\[\S+\]){0,2}\{([\w\.-]+)\}/) {
-		$dep .= ' ' if $dep;
-		$dep .= $1;
+
+sub scan_texfile {
+    my ($fn, $src) = @_;
+    my $f;
+    my @dep = ();
+    open($f, "<$fn") or die("tdepend: '$fn' listed in $src: $!\n");
+    while (<$f>) {
+	if (/\\(includegraphics)\*?(?:\[\S+\]){0,2}\{([\w\.\/-]+)\}/ ||
+	    /\\(input)\*?(?:\[\S+\]){0,2}\{([\w\.\/-]+)\}/) {
+	    my $command = $1;
+	    my $path = $2;
+	    if ($command eq 'input') {
+		$path .= '.tex' unless $path =~ /\.\w{1,8}$/i;
 	    }
+	    push @dep, $path;
+	    # recurse
+	    push @dep, scan_texfile($path, "$fn (line $.)")
+		if $path =~ /.tex$/i;
 	}
-	print "$fn: $dep\n\n" if $dep;
+    }
+    close($f);
+    return @dep;
+}
+
+foreach $fn (@ARGV) {
+    if ($fn =~ /\.tex$/i) {
+	my @dep = scan_texfile($fn, 'command line');
+	$fn =~ s/\.tex$/\.dvi/i;
+	print "$fn: " . join(' ', @dep) . "\n\n" if @dep;
     } elsif ($fn =~ /\.m$/) {
 	my $cmd = $`;
 	my $prod;
 	my $dep = $fn;
+	open(F, "<$fn");
 	while (<F>) {
 	    # handle continuation lines
 	    while (s/\.\.\.\s*$//) {
@@ -29,6 +47,7 @@ foreach $fn (@ARGV) {
                 $dep .= " $1"
             }
 	}
+        close(F);
 	if ($prod && !$matlab) {
 	    print "MATLAB=matlab -nosplash\n\n";
 	    $matlab = 1;
@@ -37,5 +56,4 @@ foreach $fn (@ARGV) {
     } else {
 	die("Unknown file type of '$fn'");
     }
-    close(F);
 }
