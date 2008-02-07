@@ -8,6 +8,7 @@ sub scan_texfile {
     open($f, "<$fn") or die("tdepend: '$fn' listed in $src: $!\n");
     while (<$f>) {
 	if (/\\(includegraphics)\*?(?:\[\S+\]){0,2}\{([\w\.\/-]+)\}/ ||
+	    /\\(epsfig)\{figure=([\w\.\/-]+)(?:,[^,\}]*)*\}/ ||
 	    /\\(input)\*?(?:\[\S+\]){0,2}\{([\w\.\/-]+)\}/) {
 	    my $command = $1;
 	    my $path = $2;
