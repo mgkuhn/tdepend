@@ -7,6 +7,7 @@ sub scan_texfile {
     my @dep = ();
     open($f, "<$fn") or die("tdepend: '$fn' listed in $src: $!\n");
     while (<$f>) {
+	s/(?<!\\)%.*$//;
 	if (/\\(includegraphics)\*?(?:\[\S+\]){0,2}\{([\w\.\/-]+)\}/ ||
 	    /\\(epsfig)\{figure=([\w\.\/-]+)(?:,[^,\}]*)*\}/ ||
 	    /\\(input)\*?(?:\[\S+\]){0,2}\{([\w\.\/-]+)\}/) {
