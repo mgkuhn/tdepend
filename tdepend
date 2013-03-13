@@ -19,18 +19,27 @@ sub scan_texfile {
 	    push @dep, $path;
 	    # recurse
 	    push @dep, scan_texfile($path, "$fn (line $.)")
-		if $path =~ /.tex$/i;
+		if $path =~ /\.tex$/i;
 	}
     }
     close($f);
     return @dep;
 }
 
+my @tex_target_suffix = ('.dvi');
+
 foreach $fn (@ARGV) {
-    if ($fn =~ /\.tex$/i) {
+    if ($fn eq '-p') {
+	# set the target suffix to .pdf, for use with pdflatex
+	@tex_target_suffix = ('.pdf');
+    } elsif ($fn =~ /^-s(.*)$/i) {
+	# add additional target suffixes
+	push @tex_target_suffix, $1;
+    } elsif ($fn =~ /\.tex$/i) {
 	my @dep = scan_texfile($fn, 'command line');
-	$fn =~ s/\.tex$/\.dvi/i;
-	print "$fn: " . join(' ', @dep) . "\n\n" if @dep;
+	$fn =~ s/\.tex$//i;
+	print join(' ', map({ $fn . $_ } @tex_target_suffix)) .
+	    ": " . join(' ', @dep) . "\n\n" if @dep;
     } elsif ($fn =~ /\.m$/) {
 	my $cmd = $`;
 	my $prod;
