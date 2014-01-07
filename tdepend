@@ -1,21 +1,59 @@
 #!/usr/bin/perl
 #List *.tex and *.m files on the command line to get Makefile dependencies
 
+unless (@ARGV) {
+    print STDERR <<'EOT';
+Scans the LaTeX (*.tex) and MATLAB (*.m) files provided as command-line
+arguments for dependencies (files that they include), and writes the
+result out in form rules suitable for inclusion into a Makefile.
+
+Usage: tdepend [options] file file ...
+
+Options:
+
+  -p           Assume that pdflatex is used, i.e. that file *.tex produces
+               a target *.pdf (the default assumes a target *.dvi) and
+	       that \includegraphics will add a default suffix of .pdf.
+
+  -s<suffix>   Add additional suffixes to the default LaTeX target list.
+
+               Example: if you use your exam.tex source file to produce
+               both exam.pdf and exam-solutions.pdf files, use
+               "tdepend -p -s-solutions.pdf exam.tex >Makefile.include".
+
+EOT
+    exit 1;
+}
+
 sub scan_texfile {
     my ($fn, $src) = @_;
     my $f;
     my @dep = ();
     open($f, "<$fn") or die("tdepend: '$fn' listed in $src: $!\n");
     while (<$f>) {
-	s/(?<!\\)%.*$//;
-	if (/\\(includegraphics)\*?(?:\[[^\]]*\]){0,2}\{([\w\.\/-]+)\}/ ||
-	    /\\(epsfig)\{figure=([\w\.\/-]+)(?:,[^,\}]*)*\}/ ||
-	    /\\(input)\*?(?:\[\S+\]){0,2}\{([\w\.\/-]+)\}/) {
-	    my $command = $1;
-	    my $path = $2;
-	    if ($command eq 'input') {
-		$path .= '.tex' unless $path =~ /\.\w{1,8}$/i;
+	s/(?<!\\)%.*$//;  # remove comments
+	if (/^(.*?)\\begin\{verbatim\}(.*)$/) {
+	    # skip verbatim blocks
+	    my $prelude = $1;
+	    $_ = $2;
+	    if (!s/^.*\\end\{verbatim\}//) {
+		while (defined($_ = <$f>) && !s/^.*\\end\{verbatim\}//) {}
 	    }
+	    $_ = $prelude . $_;
+	}
+	while (s/\\includegraphics\*?(?:\[[^\]]*\]){0,2}\{([\w\.\/-]+)\}//) {
+	    my $path = $1;
+	    $path .= $includegraphics_suffix
+		unless $path =~ /\.[a-zA-Z_]+$/;
+	    push @dep, $path;
+	}
+	while (s/\\epsfig\{figure=([\w\.\/-]+)(?:,[^,\}]*)*\}//) {
+	    my $path = $1;
+	    push @dep, $path;
+	}
+	while(s/\\input\*?(?:\[\S+\]){0,2}\{([\w\.\/-]+)\}//) {
+	    my $path = $1;
+	    $path .= '.tex' unless $path =~ /\.\w{1,8}$/i;
 	    push @dep, $path;
 	    # recurse
 	    push @dep, scan_texfile($path, "$fn (line $.)")
@@ -27,11 +65,14 @@ sub scan_texfile {
 }
 
 my @tex_target_suffix = ('.dvi');
+my $includegraphics_suffix = 'eps';
 
 foreach $fn (@ARGV) {
     if ($fn eq '-p') {
-	# set the target suffix to .pdf, for use with pdflatex
+	# assume use of pdftex/pdflatex: set both the target suffix
+	# and the \includegraphics default suffix to .pdf
 	@tex_target_suffix = ('.pdf');
+	$includegraphics_suffix = 'pdf';
     } elsif ($fn =~ /^-s(.*)$/i) {
 	# add additional target suffixes
 	push @tex_target_suffix, $1;
@@ -44,11 +85,12 @@ foreach $fn (@ARGV) {
 	my $cmd = $`;
 	my $prod;
 	my $dep = $fn;
-	open(F, "<$fn");
-	while (<F>) {
+	my $f;
+	open($f, "<$fn");
+	while (<$f>) {
 	    # handle continuation lines
 	    while (s/\.\.\.\s*$//) {
-		$_ .= <F>;
+		$_ .= <$f>;
 	    }
 	    if (/^\s*(imwrite|saveas)\(.*?'([\w\.%-]+)\'.*?(,\s*\'\w+\'\s*)?\);?\s*$/) {
 		$prod .= ' ' if $prod;
@@ -58,7 +100,7 @@ foreach $fn (@ARGV) {
                 $dep .= " $1"
             }
 	}
-        close(F);
+        close($f);
 	if ($prod && !$matlab) {
 	    print "MATLAB=matlab -nosplash\n\n";
 	    $matlab = 1;
