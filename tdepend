@@ -47,6 +47,12 @@ sub scan_texfile {
 		unless $path =~ /\.[a-zA-Z_]+$/;
 	    push @dep, $path;
 	}
+	while (s/\\includepdf(?:\[[^\]]*\]){0,2}\{([\w\.\/-]+)\}//) {
+	    my $path = $1;
+	    $path .= '.pdf'
+		unless $path =~ /\.[a-zA-Z_]+$/;
+	    push @dep, $path;
+	}
 	while (s/\\epsfig\{figure=([\w\.\/-]+)(?:,[^,\}]*)*\}//) {
 	    my $path = $1;
 	    push @dep, $path;
