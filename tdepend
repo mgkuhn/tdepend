@@ -32,6 +32,7 @@ sub scan_texfile {
     open($f, "<$fn") or die("tdepend: '$fn' listed in $src: $!\n");
     while (<$f>) {
 	s/(?<!\\)%.*$//;  # remove comments
+	last if /^\s*\\end\{document\}/;
 	if (/^(.*?)\\begin\{verbatim\}(.*)$/) {
 	    # skip verbatim blocks
 	    my $prelude = $1;
