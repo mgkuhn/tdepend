@@ -33,6 +33,12 @@ my @tex_target_suffix = ('.dvi');
 my $includegraphics_suffix = 'eps';
 my $use_kpsewhich;
 
+# remove duplicates from array
+sub uniq {
+    my %seen;
+    grep !$seen{$_}++, @_;
+}
+
 sub scan_texfile {
     my ($fn, $src) = @_;
     my $f;
@@ -89,7 +95,7 @@ sub scan_texfile {
 	}
     }
     close($f);
-    return @dep;
+    return uniq(@dep);
 }
 
 my $matlab;
