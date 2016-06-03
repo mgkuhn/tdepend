@@ -1,6 +1,8 @@
 #!/usr/bin/perl
 #List *.tex and *.m files on the command line to get Makefile dependencies
 
+use strict;
+
 unless (@ARGV) {
     print STDERR <<'EOT';
 Scans the LaTeX (*.tex) and MATLAB (*.m) files provided as command-line
@@ -21,15 +23,27 @@ Options:
                both exam.pdf and exam-solutions.pdf files, use
                "tdepend -p -s-solutions.pdf exam.tex >Makefile.include".
 
+  -k           Also try kpsewhich to find dependencies.
+
 EOT
     exit 1;
 }
+
+my @tex_target_suffix = ('.dvi');
+my $includegraphics_suffix = 'eps';
+my $use_kpsewhich;
 
 sub scan_texfile {
     my ($fn, $src) = @_;
     my $f;
     my @dep = ();
-    open($f, "<$fn") or die("tdepend: '$fn' listed in $src: $!\n");
+    my $path = $fn;
+    if ($use_kpsewhich && ! -e $fn) {
+	die if $fn =~ /'/;
+	$path = `kpsewhich '$fn'` // $fn;
+	chomp $path;
+    }
+    open($f, '<', $path) or die("tdepend: '$path' listed in $src: $!\n");
     while (<$f>) {
 	s/(?<!\\)%.*$//;  # remove comments
 	last if /^\s*\\end\{document\}/;
@@ -78,15 +92,15 @@ sub scan_texfile {
     return @dep;
 }
 
-my @tex_target_suffix = ('.dvi');
-my $includegraphics_suffix = 'eps';
-
-foreach $fn (@ARGV) {
+my $matlab;
+foreach my $fn (@ARGV) {
     if ($fn eq '-p') {
 	# assume use of pdftex/pdflatex: set both the target suffix
 	# and the \includegraphics default suffix to .pdf
 	@tex_target_suffix = ('.pdf');
 	$includegraphics_suffix = 'pdf';
+    } elsif ($fn eq '-k') {
+	$use_kpsewhich = 1;
     } elsif ($fn =~ /^-s(.*)$/i) {
 	# add additional target suffixes
 	push @tex_target_suffix, $1;
