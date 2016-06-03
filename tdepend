@@ -66,6 +66,13 @@ sub scan_texfile {
 	    push @dep, scan_texfile($path, "$fn (line $.)")
 		if $path =~ /\.tex$/i;
 	}
+	while(s/\\bibliography\{(.*?)\}//) {
+	    my @bibs = split(/,\s*/, $1);
+	    my $bbl = $fn;
+	    $bbl =~ s/\.tex$/.bbl/;
+	    print "$bbl: ", join(' ', map { "$_.bib" } @bibs), "\n\n";
+	    push @dep, $bbl;
+	}
     }
     close($f);
     return @dep;
