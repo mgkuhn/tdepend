@@ -30,7 +30,7 @@ EOT
 }
 
 my @tex_target_suffix = ('.dvi');
-my $includegraphics_suffix = 'eps';
+my $includegraphics_suffix = '.eps';
 my $use_kpsewhich;
 
 # remove duplicates from array
@@ -74,7 +74,7 @@ sub scan_texfile {
 		unless $path =~ /\.[a-zA-Z_]+$/;
 	    push @dep, $path;
 	}
-	while (s/\\epsfig\{figure=([\w\.\/-]+)(?:,[^,\}]*)*\}//) {
+	while (s/\\e?psfig\{(?:file|figure)=([\w\.\/-]+)(?:,[^,\}]*)*\}//) {
 	    my $path = $1;
 	    push @dep, $path;
 	}
@@ -104,7 +104,7 @@ foreach my $fn (@ARGV) {
 	# assume use of pdftex/pdflatex: set both the target suffix
 	# and the \includegraphics default suffix to .pdf
 	@tex_target_suffix = ('.pdf');
-	$includegraphics_suffix = 'pdf';
+	$includegraphics_suffix = '.pdf';
     } elsif ($fn eq '-k') {
 	$use_kpsewhich = 1;
     } elsif ($fn =~ /^-s(.*)$/i) {
