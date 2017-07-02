@@ -62,7 +62,7 @@ sub scan_texfile {
 	    }
 	    $_ = $prelude . $_;
 	}
-	while (s/\\includegraphics\*?(?:\[[^\]]*\]){0,2}\{([\w\.\/-]+)\}//) {
+	while (s/\\includegraphics\*?(?:<.*?>)?(?:\[.*?\]){0,2}\{([\w\.\/-]+)\}//) {
 	    my $path = $1;
 	    $path .= $includegraphics_suffix
 		unless $path =~ /\.[a-zA-Z_]+$/;
@@ -85,6 +85,10 @@ sub scan_texfile {
 	    # recurse
 	    push @dep, scan_texfile($path, "$fn (line $.)")
 		if $path =~ /\.tex$/i;
+	}
+	while(s/\\lstinputlisting\{([\w\.\/-]+)\}//) {
+	    # \usepackage{listings}
+	    push @dep, $1;
 	}
 	while(s/\\bibliography\{(.*?)\}//) {
 	    my @bibs = split(/,\s*/, $1);
