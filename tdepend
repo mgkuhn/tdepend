@@ -78,7 +78,8 @@ sub scan_texfile {
 	    my $path = $1;
 	    push @dep, $path;
 	}
-	while(s/\\input\*?(?:\[\S+\]){0,2}\{([\w\.\/-]+)\}//) {
+	while(s/\\input\*?(?:\[\S+\]){0,2}\{([\w\.\/-]+)\}// ||
+	      s/\\input\s+([\w\.\/-]+)//) {
 	    my $path = $1;
 	    $path .= '.tex' unless $path =~ /\.\w{1,8}$/i;
 	    push @dep, $path;
