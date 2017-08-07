@@ -23,6 +23,11 @@ Options:
                both exam.pdf and exam-solutions.pdf files, use
                "tdepend -p -s-solutions.pdf exam.tex >Makefile.include".
 
+  -d<prefix>   Prefix in the output each target and dependency with this
+               directory name. (This can useful if tdepend actually
+               runs in a subdirectory of where the Makefile is
+               located.)
+
   -k           Also try kpsewhich to find dependencies.
 
 EOT
@@ -32,6 +37,7 @@ EOT
 my @tex_target_suffix = ('.dvi');
 my $includegraphics_suffix = '.eps';
 my $use_kpsewhich;
+my $prefix = '';
 
 # remove duplicates from array
 sub uniq {
@@ -82,6 +88,15 @@ sub scan_texfile {
 	      s/\\input\s+([\w\.\/-]+)//) {
 	    my $path = $1;
 	    $path .= '.tex' unless $path =~ /\.\w{1,8}$/i;
+	    if (! -e $path) {
+		if ($use_kpsewhich) {
+		    die if $fn =~ /'/;
+		    $path = `kpsewhich '$path'` // $path;
+		    chomp $path;
+		}
+		# skip dependencies on TeXLive distribution
+		next if $path =~ m:^/usr/:;
+	    }
 	    push @dep, $path;
 	    # recurse
 	    push @dep, scan_texfile($path, "$fn (line $.)")
@@ -115,10 +130,15 @@ foreach my $fn (@ARGV) {
     } elsif ($fn =~ /^-s(.*)$/i) {
 	# add additional target suffixes
 	push @tex_target_suffix, $1;
+    } elsif ($fn =~ /^-d(.*)$/) {
+	# add prefix directory
+	$prefix = $1;
+	$prefix .= '/' unless $prefix =~ /\/\z/;
     } elsif ($fn =~ /\.tex$/i) {
 	my @dep = scan_texfile($fn, 'command line');
+	@dep = map({ $prefix . $_ } @dep) if $prefix;
 	$fn =~ s/\.tex$//i;
-	print join(' ', map({ $fn . $_ } @tex_target_suffix)) .
+	print join(' ', map({ $prefix . $fn . $_ } @tex_target_suffix)) .
 	    ": " . join(' ', @dep) . "\n\n" if @dep;
     } elsif ($fn =~ /\.m$/) {
 	my $cmd = $`;
