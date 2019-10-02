@@ -28,15 +28,12 @@ Options:
                runs in a subdirectory of where the Makefile is
                located.)
 
-  -k           Also try kpsewhich to find dependencies.
-
 EOT
     exit 1;
 }
 
 my @tex_target_suffix = ('.dvi');
 my $includegraphics_suffix = '.eps';
-my $use_kpsewhich;
 my $prefix = '';
 
 # remove duplicates from array
@@ -45,16 +42,26 @@ sub uniq {
     grep !$seen{$_}++, @_;
 }
 
+# search file according to TEXINPUTS, etc.
+sub kpsewhich {
+    for $_ (@_) {
+        if (! -e $_) {
+            die if /'/;
+            $_ = `kpsewhich '$_'` // $_;
+            chomp;
+            # skip dependencies on TeXLive distribution
+            undef $_ if m:^/usr/share/:;
+        }
+    }
+}
+
 sub scan_texfile {
     my ($fn, $src) = @_;
     my $f;
     my @dep = ();
     my $path = $fn;
-    if ($use_kpsewhich && ! -e $fn) {
-	die if $fn =~ /'/;
-	$path = `kpsewhich '$fn'` // $fn;
-	chomp $path;
-    }
+    kpsewhich($path);
+    return unless defined $path;
     open($f, '<', $path) or die("tdepend: '$path' listed in $src: $!\n");
     while (<$f>) {
 	s/(?<!\\)%.*$//;  # remove comments
@@ -84,27 +91,27 @@ sub scan_texfile {
 	    my $path = $1;
 	    push @dep, $path;
 	}
-	while(s/\\input\*?(?:\[\S+\]){0,2}\{([\w\.\/-]+)\}// ||
-	      s/\\input\s+([\w\.\/-]+)//) {
-	    my $path = $1;
-	    $path .= '.tex' unless $path =~ /\.\w{1,8}$/i;
-	    if (! -e $path) {
-		if ($use_kpsewhich) {
-		    die if $fn =~ /'/;
-		    $path = `kpsewhich '$path'` // $path;
-		    chomp $path;
-		}
-		# skip dependencies on TeXLive distribution
-		next if $path =~ m:^/usr/:;
-	    }
+        while (s/\\usetheme\*?(?:\[\S+\]){0,2}\{([\w\.,\/-]+)\}/join('',
+               map({"\\usepackage\{beamertheme$_.sty\}"} split(',', $1)))/e) {}
+	while (s/\\((?:verbatim)?input|usepackage|documentclass|lstinputlisting)\*?(?:\[\S+\]){0,2}\{([\w\.\/-]+)\}// ||
+               s/\\(input)\s+([\w\.\/-]+)//) {
+            my $macro = $1;
+	    my $path = $2;
+            unless ($path =~ /\.\w{1,8}$/i) {
+                if ($macro eq 'input') {
+                    $path .= '.tex';
+                } elsif ($macro eq 'usepackage') {
+                    $path .= '.sty';
+                } elsif ($macro eq 'documentclass') {
+                    $path .= '.cls';
+                }
+            }
+            kpsewhich($path);
+            next unless defined $path;
 	    push @dep, $path;
 	    # recurse
 	    push @dep, scan_texfile($path, "$fn (line $.)")
-		if $path =~ /\.tex$/i;
-	}
-	while(s/\\lstinputlisting\{([\w\.\/-]+)\}//) {
-	    # \usepackage{listings}
-	    push @dep, $1;
+		if $macro eq 'input';
 	}
 	while(s/\\bibliography\{(.*?)\}//) {
 	    my @bibs = split(/,\s*/, $1);
@@ -126,7 +133,7 @@ foreach my $fn (@ARGV) {
 	@tex_target_suffix = ('.pdf');
 	$includegraphics_suffix = '.pdf';
     } elsif ($fn eq '-k') {
-	$use_kpsewhich = 1;
+        warn("$0:option -k is now redundant\n");
     } elsif ($fn =~ /^-s(.*)$/i) {
 	# add additional target suffixes
 	push @tex_target_suffix, $1;
