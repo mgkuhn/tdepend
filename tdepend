@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 #List *.tex and *.m files on the command line to get Makefile dependencies
 
-use strict;
+use 5.016;  # implies use strict;
 
 unless (@ARGV) {
     print STDERR <<'EOT';
@@ -47,8 +47,14 @@ sub kpsewhich {
     for $_ (@_) {
         if (! -e $_) {
             die if /'/;
-            $_ = `kpsewhich '$_'` // $_;
-            chomp;
+            my $f = `kpsewhich '$_'` || $_;
+            chomp $f;
+            if ($f eq '') {
+                warn("$_:file not found\n");
+                undef $_;
+            } else {
+                $_ = $f;
+            }
             # skip dependencies on TeXLive distribution
             undef $_ if m:^/usr/share/:;
         }
@@ -93,7 +99,7 @@ sub scan_texfile {
 	}
         while (s/\\usetheme\*?(?:\[\S+\]){0,2}\{([\w\.,\/-]+)\}/join('',
                map({"\\usepackage\{beamertheme$_.sty\}"} split(',', $1)))/e) {}
-	while (s/\\((?:verbatim)?input|usepackage|documentclass|lstinputlisting)\*?(?:\[\S+\]){0,2}\{([\w\.\/-]+)\}// ||
+	while (s/\\((?:verbatim)?input|usepackage|documentclass|lstinputlisting|externaldocument)\*?(?:\[\S+\]){0,2}\{([\w\.\/-]+)\}// ||
                s/\\(input)\s+([\w\.\/-]+)//) {
             my $macro = $1;
 	    my $path = $2;
@@ -104,6 +110,8 @@ sub scan_texfile {
                     $path .= '.sty';
                 } elsif ($macro eq 'documentclass') {
                     $path .= '.cls';
+                } elsif ($macro eq 'externaldocument') {
+                    $path .= '.aux';
                 }
             }
             kpsewhich($path);
@@ -111,7 +119,7 @@ sub scan_texfile {
 	    push @dep, $path;
 	    # recurse
 	    push @dep, scan_texfile($path, "$fn (line $.)")
-		if $macro eq 'input';
+		if $macro eq 'input' && -e $path;
 	}
 	while(s/\\bibliography\{(.*?)\}//) {
 	    my @bibs = split(/,\s*/, $1);
