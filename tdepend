@@ -103,7 +103,7 @@ sub scan_texfile {
                s/\\(input)\s+([\w\.\/-]+)//) {
             my $macro = $1;
 	    my $path = $2;
-            unless ($path =~ /\.\w{1,8}$/i) {
+            unless ($path =~ /\.\w{1,10}$/i) {
                 if ($macro eq 'input') {
                     $path .= '.tex';
                 } elsif ($macro eq 'usepackage') {
