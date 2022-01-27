@@ -28,6 +28,13 @@ Options:
                runs in a subdirectory of where the Makefile is
                located.)
 
+  -o<filename> Write output into this file (default: stdout)
+
+  -O<filename> Like -o, but delete the file in the end if it was empty.
+
+  -C           Do not include any LaTeX package and class files as
+               dependencies.
+
 EOT
     exit 1;
 }
@@ -35,6 +42,11 @@ EOT
 my @tex_target_suffix = ('.dvi');
 my $includegraphics_suffix = '.eps';
 my $prefix = '';
+my $fnout;
+my $fout = *STDOUT;
+my $delete_empty_output = 0;
+my $include_package = 1;
+my $include_class   = 1;
 
 # remove duplicates from array
 sub uniq {
@@ -103,6 +115,8 @@ sub scan_texfile {
                s/\\(input)\s+([\w\.\/-]+)//) {
             my $macro = $1;
 	    my $path = $2;
+            next if $macro eq 'usepackage'    && !$include_package;
+            next if $macro eq 'documentclass' && !$include_class;
             unless ($path =~ /\.\w{1,10}$/i) {
                 if ($macro eq 'input') {
                     $path .= '.tex';
@@ -125,7 +139,7 @@ sub scan_texfile {
 	    my @bibs = split(/,\s*/, $1);
 	    my $bbl = $fn;
 	    $bbl =~ s/\.tex$/.bbl/;
-	    print "$bbl: ", join(' ', map { "$_.bib" } @bibs), "\n\n";
+	    print $fout "$bbl: ", join(' ', map { "$_.bib" } @bibs), "\n\n";
 	    push @dep, $bbl;
 	}
     }
@@ -149,11 +163,18 @@ foreach my $fn (@ARGV) {
 	# add prefix directory
 	$prefix = $1;
 	$prefix .= '/' unless $prefix =~ /\/\z/;
+    } elsif ($fn =~ /^-C$/) {
+        $include_package = 0;
+        $include_class   = 0;
+    } elsif ($fn =~ /^-([oO])(.*)$/) {
+        $delete_empty_output = $1 eq 'O';
+        $fnout = $2;
+        open($fout, '>', $fnout) or die("$fnout: $!\n");
     } elsif ($fn =~ /\.tex$/i) {
 	my @dep = scan_texfile($fn, 'command line');
 	@dep = map({ $prefix . $_ } @dep) if $prefix;
 	$fn =~ s/\.tex$//i;
-	print join(' ', map({ $prefix . $fn . $_ } @tex_target_suffix)) .
+	print $fout join(' ', map({ $prefix . $fn . $_ } @tex_target_suffix)) .
 	    ": " . join(' ', @dep) . "\n\n" if @dep;
     } elsif ($fn =~ /\.m$/) {
 	my $cmd = $`;
@@ -176,11 +197,16 @@ foreach my $fn (@ARGV) {
 	}
         close($f);
 	if ($prod && !$matlab) {
-	    print "MATLAB=matlab -nosplash\n\n";
+	    print $fout "MATLAB=matlab -nosplash\n\n";
 	    $matlab = 1;
 	}
-	print "$prod: $dep\n\techo $cmd | \$(MATLAB)\n\n" if $prod;
+	print $fout "$prod: $dep\n\techo $cmd | \$(MATLAB)\n\n" if $prod;
     } else {
 	die("Unknown file type of '$fn'");
     }
+}
+
+close $fout;
+if (defined $fnout && $delete_empty_output && -z $fnout) {
+    unlink $fnout or warn "Could not unlink $fnout: $!";
 }
