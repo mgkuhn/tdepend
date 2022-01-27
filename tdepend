@@ -7,7 +7,7 @@ unless (@ARGV) {
     print STDERR <<'EOT';
 Scans the LaTeX (*.tex) and MATLAB (*.m) files provided as command-line
 arguments for dependencies (files that they include), and writes the
-result out in form rules suitable for inclusion into a Makefile.
+result out in form of rules suitable for inclusion into a Makefile.
 
 Usage: tdepend [options] file file ...
 
@@ -24,7 +24,7 @@ Options:
                "tdepend -p -s-solutions.pdf exam.tex >Makefile.include".
 
   -d<prefix>   Prefix in the output each target and dependency with this
-               directory name. (This can useful if tdepend actually
+               directory name. (This can be useful if tdepend actually
                runs in a subdirectory of where the Makefile is
                located.)
 
